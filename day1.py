@@ -28,4 +28,4 @@ def day1_2(side1, side2):
         score = side2.count(i)
         similarity += score * i
     return similarity
-print("Day1 part 1: ", day1_2(side1.copy(), side2.copy()))
+print("Day1 part 2: ", day1_2(side1.copy(), side2.copy()))
