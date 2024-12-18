@@ -3,23 +3,119 @@ use std::fs::File;
 use std::io::{self, BufRead};
 
 pub fn day6() {
-    let (pts_v, mut curr_pt, max_len) = read_points("day6.txt").unwrap();
+    let (mut pts_v, top_start, max_len) = read_points("day6.txt").unwrap();
+    let start = top_start.clone();
 
-    let mut pts_visited = HashSet::new();
+    let mut pts_loop: HashSet<Points> = HashSet::new();
+    let mut pts_visited: HashSet<Points> = HashSet::new();
+    find_pts(max_len, top_start, &pts_v, &mut pts_visited, &mut pts_loop);
+
+    println!("Day6 Part 1: {}", pts_visited.len());
+    let mut pts_loop_f: HashSet<Points> = HashSet::new();
+    for p in pts_loop{
+        if pts_v.contains(&p){
+            continue;
+        }
+        pts_loop_f.insert(p);
+    }
+    let mut counter: u16 = 0;
+    pts_loop_f.retain(|x| x != &start);
+    println!("pts rep {:?}", pts_loop_f.len());
+    for p in pts_loop_f.iter() {
+        pts_v.push(p.clone());
+        let is_loop = check_for_loop(&start, &pts_v);
+        if is_loop {
+            counter += 1;
+        }
+        pts_v.retain(|x| x != p);
+    }
+    println!("Day6 Part 2: {:?}", counter);
+}
+
+fn check_for_loop(start: &Points, pts_v: &Vec<Points>) -> bool {
+    let mut top_start = start.clone();
+    let mut loop_finder: HashSet<Points> = HashSet::new();
     loop {
         let _top_end: &Points;
-        match curr_pt.find_top(&pts_v) {
+        match top_start.find_top(&pts_v) {
+            Some(value) => {
+                _top_end = value;
+            }
+            None => return false
+        }
+        let top_end = Points {
+            x: _top_end.x + 1,
+            y: _top_end.y,
+        };
+        let _right_end: &Points;
+        let right_start = top_end;
+        match right_start.find_right(&pts_v) {
+            Some(value) => {
+                _right_end = value;
+            }
+            None => return false
+        }
+        let right_end = Points {
+            x: _right_end.x,
+            y: _right_end.y - 1,
+        };
+        let _bottom_end: &Points;
+        let bottom_start = right_end;
+        match bottom_start.find_bottom(&pts_v) {
+            Some(value) => {
+                _bottom_end = value;
+            }
+            None => return false
+        }
+        let bottom_end = Points {
+            x: _bottom_end.x - 1,
+            y: _bottom_end.y,
+        };
+        let _left_end: &Points;
+        let left_start = bottom_end;
+        match left_start.find_left(&pts_v) {
+            Some(value) => {
+                _left_end = value;
+            }
+            None => return false
+        }
+        let left_end = Points {
+            x: _left_end.x,
+            y: _left_end.y + 1,
+        };
+        if loop_finder.contains(&top_start) {
+            return true
+        }
+        loop_finder.insert(top_start.clone());
+        top_start = left_end;
+    }
+}
+
+fn find_pts(
+    max_len: usize,
+    mut top_start: Points,
+    pts_v: &Vec<Points>,
+    mut pts_visited: &mut HashSet<Points>,
+    mut pts_loop: &mut HashSet<Points>,
+) {
+    loop {
+        let _top_end: &Points;
+        match top_start.find_top(&pts_v) {
             Some(value) => {
                 _top_end = value;
             }
             None => {
                 guards_visited(
                     &Points {
-                        x: max_len as u8,
-                        y: curr_pt.y,
+                        x: 1,
+                        y: top_start.y,
                     },
-                    &curr_pt,
+                    &top_start,
                     &mut pts_visited,
+                    "top",
+                    &mut pts_loop,
+                    pts_v,
+                    max_len
                 );
                 break;
             }
@@ -28,20 +124,33 @@ pub fn day6() {
             x: _top_end.x + 1,
             y: _top_end.y,
         };
-        guards_visited(&top_end, &curr_pt, &mut pts_visited);
+        guards_visited(
+            &top_end,
+            &top_start,
+            &mut pts_visited,
+            "top",
+            &mut pts_loop,
+            pts_v,
+            max_len
+        );
         let _right_end: &Points;
-        match top_end.find_right(&pts_v) {
+        let right_start = top_end;
+        match right_start.find_right(&pts_v) {
             Some(value) => {
                 _right_end = value;
             }
             None => {
                 guards_visited(
-                    &top_end,
+                    &right_start,
                     &Points {
-                        x: top_end.x,
+                        x: right_start.x,
                         y: max_len as u8,
                     },
                     &mut pts_visited,
+                    "right",
+                    &mut pts_loop,
+                    pts_v,
+                    max_len
                 );
                 break;
             }
@@ -50,20 +159,33 @@ pub fn day6() {
             x: _right_end.x,
             y: _right_end.y - 1,
         };
-        guards_visited(&top_end, &right_end, &mut pts_visited);
+        guards_visited(
+            &right_start,
+            &right_end,
+            &mut pts_visited,
+            "right",
+            &mut pts_loop,
+            pts_v,
+            max_len
+        );
         let _bottom_end: &Points;
-        match right_end.find_bottom(&pts_v) {
+        let bottom_start = right_end;
+        match bottom_start.find_bottom(&pts_v) {
             Some(value) => {
                 _bottom_end = value;
             }
             None => {
                 guards_visited(
-                    &right_end,
+                    &bottom_start,
                     &Points {
                         x: max_len as u8,
-                        y: right_end.y,
+                        y: bottom_start.y,
                     },
                     &mut pts_visited,
+                    "bottom",
+                    &mut pts_loop,
+                    pts_v,
+                    max_len
                 );
                 break;
             }
@@ -72,20 +194,33 @@ pub fn day6() {
             x: _bottom_end.x - 1,
             y: _bottom_end.y,
         };
-        guards_visited(&right_end, &bottom_end, &mut pts_visited);
+        guards_visited(
+            &bottom_start,
+            &bottom_end,
+            &mut pts_visited,
+            "bottom",
+            &mut pts_loop,
+            pts_v,
+            max_len
+        );
         let _left_end: &Points;
-        match bottom_end.find_left(&pts_v) {
+        let left_start = bottom_end;
+        match left_start.find_left(&pts_v) {
             Some(value) => {
                 _left_end = value;
             }
             None => {
                 guards_visited(
                     &Points {
-                        x: bottom_end.x,
-                        y: max_len as u8,
+                        x: left_start.x,
+                        y: 1,
                     },
-                    &bottom_end,
+                    &left_start,
                     &mut pts_visited,
+                    "left",
+                    &mut pts_loop,
+                    pts_v,
+                    max_len
                 );
                 break;
             }
@@ -94,17 +229,52 @@ pub fn day6() {
             x: _left_end.x,
             y: _left_end.y + 1,
         };
-        guards_visited(&left_end, &bottom_end, &mut pts_visited);
-        curr_pt = left_end;
+        guards_visited(
+            &left_end,
+            &left_start,
+            &mut pts_visited,
+            "left",
+            &mut pts_loop,
+            pts_v,
+            max_len
+        );
+        top_start = left_end;
+        // break;
     }
-
-    println!("Day6 Part 1: {}", pts_visited.len());
 }
 
-fn guards_visited(x_pt: &Points, y_pt: &Points, pts_visited: &mut HashSet<Points>) {
+fn guards_visited(
+    x_pt: &Points,
+    y_pt: &Points,
+    pts_visited: &mut HashSet<Points>,
+    dir: &str,
+    pts_loop: &mut HashSet<Points>,
+    pts_v: &Vec<Points>,
+    max_len: usize
+) {
     for point in point_range(x_pt.clone(), y_pt.clone()) {
-        pts_visited.insert(point);
+        pts_visited.insert(point.clone());
+        insert_value(pts_loop, dir.to_string(), &point, pts_v, max_len);
     }
+}
+
+fn insert_value(map: &mut HashSet<Points>, key: String, value: &Points, pts_v: &Vec<Points>,  max_len: usize) {
+    // If the key does not exist, insert a new HashSet
+    let mut v = Points::default();
+    if key == "left" {
+        value.find_top(&pts_v).map(|_| v = Points { x: value.x, y: value.y - 1 }).unwrap_or_else(|| return)
+    } else if key == "right" {
+        value.find_bottom(&pts_v).map(|_| v = Points { x: value.x, y: value.y + 1 }).unwrap_or_else(|| return)
+    } else if key == "top" {
+        value.find_right(&pts_v).map(|_| v = Points { x: value.x - 1, y: value.y }).unwrap_or_else(|| return)
+    } else if key == "bottom" {
+        value.find_left(&pts_v).map(|_| v = Points { x: value.x + 1, y: value.y }).unwrap_or_else(|| return)
+    }
+    if v.x < 1 || v.x as usize > max_len || v.y < 1 || v.y as usize > max_len{
+        // out of range skip
+        return
+    }
+    map.insert(v);
 }
 
 fn read_points(filename: &str) -> io::Result<(Vec<Points>, Points, usize)> {
